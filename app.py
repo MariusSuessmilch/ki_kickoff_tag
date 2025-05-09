@@ -67,7 +67,7 @@ if page == "Wettbewerb":
                     st.session_state.generated_image = img_data
                     
                     # Display the generated image
-                    st.image(st.session_state.image_url, caption="Deine Stadt der Zukunft", use_column_width=True)
+                    st.image(st.session_state.image_url, caption="Deine Stadt der Zukunft", use_container_width=True)
                 except Exception as e:
                     st.error(f"Fehler bei der Bilderstellung: {str(e)}")
         elif submit_button and not name:
@@ -75,61 +75,46 @@ if page == "Wettbewerb":
 
     # Display the generated image outside the form if it exists
     if st.session_state.generated_image and not st.session_state.submitted:
-        st.image(st.session_state.image_url, caption="Deine Stadt der Zukunft", use_column_width=True)
+        st.image(st.session_state.image_url, caption="Deine Stadt der Zukunft", use_container_width=True)
         
-        # Evaluate button
-        if st.button("Jetzt bewerten lassen"):
-            with st.spinner("Dein Bild wird bewertet..."):
+        # Submit button - directly submits the image without showing evaluation first
+        if st.button("Teilnahme einreichen"):
+            with st.spinner("Dein Bild wird bewertet und eingereicht..."):
                 try:
                     # Convert image to base64 for GPT-4 Vision API
                     img_data = st.session_state.generated_image
                     img_data.seek(0)
                     img_base64 = base64.b64encode(img_data.read()).decode('utf-8')
                     
-                    # Evaluate image with GPT-4 Vision
+                    # Evaluate image with GPT-4 Vision (but don't display results)
                     evaluation = evaluate_image(img_base64, custom_prompt)
                     st.session_state.evaluation_results = evaluation
                     
-                    # Display evaluation results
-                    st.subheader("Bewertung deines Bildes:")
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Kreativität", f"{evaluation['creativity']}/10")
-                    with col2:
-                        st.metric("Themenpassung", f"{evaluation['theme_relevance']}/10")
-                    with col3:
-                        st.metric("Zukunftsvision", f"{evaluation['vision_quality']}/10")
+                    # Save the submission to our data
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
-                    st.subheader(f"Gesamtwertung: {evaluation['total_score']}/30")
-                    st.write(f"**Feedback**: {evaluation['feedback']}")
+                    # Store image as base64 in the data
+                    img_data.seek(0)
+                    image_base64 = base64.b64encode(img_data.read()).decode('utf-8')
                     
-                    # Save submission button
-                    if st.button("Teilnahme einreichen"):
-                        # Save the submission to our data
-                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        
-                        # Store image as base64 in the data
-                        img_data.seek(0)
-                        image_base64 = base64.b64encode(img_data.read()).decode('utf-8')
-                        
-                        new_submission = {
-                            'timestamp': timestamp,
-                            'name': name,
-                            'prompt': custom_prompt,
-                            'image': image_base64,
-                            'creativity': evaluation['creativity'],
-                            'theme_relevance': evaluation['theme_relevance'],
-                            'vision_quality': evaluation['vision_quality'],
-                            'total_score': evaluation['total_score'],
-                            'feedback': evaluation['feedback']
-                        }
-                        
-                        data = data.append(new_submission, ignore_index=True)
-                        save_data(data)
-                        
-                        st.success("Deine Teilnahme wurde erfolgreich eingereicht!")
-                        st.session_state.submitted = True
-                        
+                    new_submission = {
+                        'timestamp': timestamp,
+                        'name': name,
+                        'prompt': custom_prompt,
+                        'image': image_base64,
+                        'creativity': evaluation['creativity'],
+                        'theme_relevance': evaluation['theme_relevance'],
+                        'vision_quality': evaluation['vision_quality'],
+                        'total_score': evaluation['total_score'],
+                        'feedback': evaluation['feedback']
+                    }
+                    
+                    data = data.append(new_submission, ignore_index=True)
+                    save_data(data)
+                    
+                    st.success("Deine Teilnahme wurde erfolgreich eingereicht!")
+                    st.session_state.submitted = True
+                    
                 except Exception as e:
                     st.error(f"Fehler bei der Bewertung: {str(e)}")
     
@@ -162,7 +147,7 @@ elif page == "Siegerehrung":
                     # Convert base64 to image
                     image_data = base64.b64decode(entry.image)
                     image = BytesIO(image_data)
-                    st.image(image, caption=f"Stadt der Zukunft von {entry.name}", use_column_width=True)
+                    st.image(image, caption=f"Stadt der Zukunft von {entry.name}", use_container_width=True)
                 
                 with col2:
                     st.write(f"**Prompt**: {entry.prompt}")
@@ -191,7 +176,7 @@ elif page == "Gallerie":
                 # Convert base64 to image
                 image_data = base64.b64decode(entry.image)
                 image = BytesIO(image_data)
-                st.image(image, caption=f"{entry.name} - {entry.total_score} Punkte", use_column_width=True)
+                st.image(image, caption=f"{entry.name} - {entry.total_score} Punkte", use_container_width=True)
                 
                 with st.expander("Details"):
                     st.write(f"**Prompt**: {entry.prompt}")
