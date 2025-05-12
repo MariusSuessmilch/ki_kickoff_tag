@@ -66,8 +66,8 @@ if page == "Wettbewerb":
                     img_data = BytesIO(image_response.content)
                     st.session_state.generated_image = img_data
                     
-                    # Display the generated image
-                    st.image(st.session_state.image_url, caption="Deine Stadt der Zukunft", use_container_width=True)
+                    # Erfolg-Nachricht, aber kein Bild anzeigen (wird außerhalb des Formulars angezeigt)
+                    st.success("Bild erfolgreich erstellt!")
                 except Exception as e:
                     st.error(f"Fehler bei der Bilderstellung: {str(e)}")
         elif submit_button and not name:
@@ -120,9 +120,8 @@ if page == "Wettbewerb":
                 except Exception as e:
                     st.error(f"Fehler bei der Bewertung: {str(e)}")
     
-    # After submission, show a thank you message
+    # After submission, show reset button
     if st.session_state.submitted:
-        st.success("Vielen Dank für deine Teilnahme! Du kannst dir die Rangliste unter 'Siegerehrung' ansehen.")
         if st.button("Neues Bild erstellen"):
             st.session_state.generated_image = None
             st.session_state.image_url = None
