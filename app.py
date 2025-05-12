@@ -109,7 +109,9 @@ if page == "Wettbewerb":
                         'feedback': evaluation['feedback']
                     }
                     
-                    data = data.append(new_submission, ignore_index=True)
+                    # Create a DataFrame from the new submission and concatenate with existing data
+                    new_row = pd.DataFrame([new_submission])
+                    data = pd.concat([data, new_row], ignore_index=True)
                     save_data(data)
                     
                     st.success("Deine Teilnahme wurde erfolgreich eingereicht!")
@@ -134,6 +136,20 @@ elif page == "Siegerehrung":
     if data.empty:
         st.info("Es wurden noch keine Bilder eingereicht. Sei der Erste!")
     else:
+        # Download-Button für die Daten (CSV ohne Bilder)
+        data_for_download = data.copy()
+        # Bilder weglassen für den Download, um die Dateigröße zu reduzieren
+        data_for_download = data_for_download.drop(columns=['image'])
+        
+        csv = data_for_download.to_csv(index=False)
+        st.download_button(
+            label="📥 Daten herunterladen (CSV)",
+            data=csv,
+            file_name="wettbewerb_daten.csv",
+            mime="text/csv",
+            help="Lädt eine CSV-Datei mit allen Einreichungen ohne Bilddaten herunter"
+        )
+        
         # Sort data by total score (descending)
         top_entries = data.sort_values(by='total_score', ascending=False).head(10)
         
@@ -164,6 +180,26 @@ elif page == "Gallerie":
     if data.empty:
         st.info("Es wurden noch keine Bilder eingereicht. Sei der Erste!")
     else:
+        # Download-Button für die Daten
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            # CSV-Download ohne Bilder
+            data_for_download = data.copy()
+            data_for_download = data_for_download.drop(columns=['image'])
+            csv = data_for_download.to_csv(index=False)
+            st.download_button(
+                label="📥 Daten herunterladen (CSV)",
+                data=csv,
+                file_name="wettbewerb_daten.csv",
+                mime="text/csv",
+                help="Lädt eine CSV-Datei mit allen Einreichungen ohne Bilddaten herunter"
+            )
+        
+        with col2:
+            # Download eines ZIP-Files mit den Bildern könnte hier implementiert werden
+            # (erfordert zusätzliche Bibliotheken)
+            pass
+            
         # Sort data by timestamp (newest first)
         sorted_data = data.sort_values(by='timestamp', ascending=False)
         
