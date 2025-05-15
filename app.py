@@ -10,7 +10,7 @@ from utils import generate_image, evaluate_image, load_data, save_data
 # Set page configurations
 st.set_page_config(
     page_title="Stadt der Zukunft - KI-Wettbewerb",
-    page_icon="🏙️",
+    page_icon=":cityscape:",
     layout="wide"
 )
 
@@ -23,16 +23,41 @@ if 'evaluation_results' not in st.session_state:
     st.session_state.evaluation_results = None
 if 'submitted' not in st.session_state:
     st.session_state.submitted = False
+if 'form_name' not in st.session_state:
+    st.session_state.form_name = ""
+if 'form_prompt' not in st.session_state:
+    st.session_state.form_prompt = "Eine saubere und grüne Stadt mit fliegenden Autos und Wolkenkratzern."
 
 # Create data directory if it doesn't exist
 os.makedirs('data', exist_ok=True)
 
 # Load existing data
-data = load_data()
+if 'data' not in st.session_state:
+    st.session_state.data = load_data()
+data = st.session_state.data
 
 # Navigation
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Gehe zu:", ["Wettbewerb", "Siegerehrung", "Gallerie"])
+
+# Wenn die Seite gewechselt hat, setze das Reset-Flag
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = page
+if st.session_state.current_page != page:
+    st.session_state.reset_form = True
+    st.session_state.current_page = page
+
+# Formular-Reset-Logik: Muss nach Navigation stehen!
+if st.session_state.get('reset_form', False):
+    # Nur zurücksetzen, wenn wir auf der Wettbewerbs-Seite sind
+    if page == "Wettbewerb":
+        st.session_state.generated_image = None
+        st.session_state.image_url = None
+        st.session_state.evaluation_results = None
+        st.session_state.submitted = False
+        st.session_state.form_name = ""
+        st.session_state.form_prompt = "Eine saubere und grüne Stadt mit fliegenden Autos und Wolkenkratzern."
+    st.session_state.reset_form = False
 
 if page == "Wettbewerb":
     st.title("🏙️ Die Stadt der Zukunft - KI-Kunstwettbewerb")
@@ -43,11 +68,15 @@ if page == "Wettbewerb":
     
     # Input form
     with st.form(key="submission_form"):
-        name = st.text_input("Dein Name:", max_chars=50)
-        prompt_base = "Erstelle ein detailliertes, kreatives und futuristisches Bild einer Stadt der Zukunft."
+        # Formularfelder mit eigenem State verknüpfen
+        if 'form_name' not in st.session_state:
+            st.session_state.form_name = ""
+        if 'form_prompt' not in st.session_state:
+            st.session_state.form_prompt = "Eine saubere und grüne Stadt mit fliegenden Autos und Wolkenkratzern."
+        name = st.text_input("Dein Name:", max_chars=70, key="form_name")
         custom_prompt = st.text_area(
             "Beschreibe deine Stadt der Zukunft:", 
-            value="Eine saubere und grüne Stadt mit fliegenden Autos und Wolkenkratzern.",
+            key="form_prompt",
             help="Beschreibe, wie du dir die Stadt der Zukunft vorstellst. Sei kreativ!"
         )
         
@@ -55,7 +84,7 @@ if page == "Wettbewerb":
         
         if submit_button and name:
             with st.spinner("Dein Bild wird erstellt..."):
-                full_prompt = f"{prompt_base} {custom_prompt}"
+                full_prompt = custom_prompt
                 try:
                     # Generate image using DALL-E through OpenAI API
                     response = generate_image(full_prompt)
@@ -68,6 +97,7 @@ if page == "Wettbewerb":
                     
                     # Erfolg-Nachricht, aber kein Bild anzeigen (wird außerhalb des Formulars angezeigt)
                     st.success("Bild erfolgreich erstellt!")
+
                 except Exception as e:
                     st.error(f"Fehler bei der Bilderstellung: {str(e)}")
         elif submit_button and not name:
@@ -75,6 +105,8 @@ if page == "Wettbewerb":
 
     # Display the generated image outside the form if it exists
     if st.session_state.generated_image and not st.session_state.submitted:
+        # Debug: Prüfe, ob Bild im Session-State ist und gib Größe aus
+
         st.image(st.session_state.image_url, caption="Deine Stadt der Zukunft", use_container_width=True)
         
         # Submit button - directly submits the image without showing evaluation first
@@ -87,7 +119,7 @@ if page == "Wettbewerb":
                     img_base64 = base64.b64encode(img_data.read()).decode('utf-8')
                     
                     # Evaluate image with GPT-4 Vision (but don't display results)
-                    evaluation = evaluate_image(img_base64, custom_prompt)
+                    evaluation = evaluate_image(img_base64, st.session_state.form_prompt)
                     st.session_state.evaluation_results = evaluation
                     
                     # Save the submission to our data
@@ -96,11 +128,13 @@ if page == "Wettbewerb":
                     # Store image as base64 in the data
                     img_data.seek(0)
                     image_base64 = base64.b64encode(img_data.read()).decode('utf-8')
+                    # Debug: base64 Länge und Ausschnitt anzeigen
+
                     
                     new_submission = {
                         'timestamp': timestamp,
-                        'name': name,
-                        'prompt': custom_prompt,
+                        'name': st.session_state.form_name,
+                        'prompt': st.session_state.form_prompt,
                         'image': image_base64,
                         'creativity': evaluation['creativity'],
                         'theme_relevance': evaluation['theme_relevance'],
@@ -111,8 +145,8 @@ if page == "Wettbewerb":
                     
                     # Create a DataFrame from the new submission and concatenate with existing data
                     new_row = pd.DataFrame([new_submission])
-                    data = pd.concat([data, new_row], ignore_index=True)
-                    save_data(data)
+                    st.session_state.data = pd.concat([st.session_state.data, new_row], ignore_index=True)
+                    save_data(st.session_state.data)
                     
                     st.success("Deine Teilnahme wurde erfolgreich eingereicht!")
                     st.session_state.submitted = True
@@ -123,10 +157,9 @@ if page == "Wettbewerb":
     # After submission, show reset button
     if st.session_state.submitted:
         if st.button("Neues Bild erstellen"):
-            st.session_state.generated_image = None
-            st.session_state.image_url = None
-            st.session_state.evaluation_results = None
-            st.session_state.submitted = False
+            # Setze nur das Reset-Flag und rerun, der eigentliche Reset erfolgt am Skript-Anfang
+            st.session_state.reset_form = True
+            st.experimental_set_query_params()  # Setze URL-State zurück
             st.rerun()
 
 elif page == "Siegerehrung":
@@ -135,20 +168,6 @@ elif page == "Siegerehrung":
     if data.empty:
         st.info("Es wurden noch keine Bilder eingereicht. Sei der Erste!")
     else:
-        # Download-Button für die Daten (CSV ohne Bilder)
-        data_for_download = data.copy()
-        # Bilder weglassen für den Download, um die Dateigröße zu reduzieren
-        data_for_download = data_for_download.drop(columns=['image'])
-        
-        csv = data_for_download.to_csv(index=False)
-        st.download_button(
-            label="📥 Daten herunterladen (CSV)",
-            data=csv,
-            file_name="wettbewerb_daten.csv",
-            mime="text/csv",
-            help="Lädt eine CSV-Datei mit allen Einreichungen ohne Bilddaten herunter"
-        )
-        
         # Sort data by total score (descending)
         top_entries = data.sort_values(by='total_score', ascending=False).head(10)
         
@@ -179,25 +198,7 @@ elif page == "Gallerie":
     if data.empty:
         st.info("Es wurden noch keine Bilder eingereicht. Sei der Erste!")
     else:
-        # Download-Button für die Daten
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            # CSV-Download ohne Bilder
-            data_for_download = data.copy()
-            data_for_download = data_for_download.drop(columns=['image'])
-            csv = data_for_download.to_csv(index=False)
-            st.download_button(
-                label="📥 Daten herunterladen (CSV)",
-                data=csv,
-                file_name="wettbewerb_daten.csv",
-                mime="text/csv",
-                help="Lädt eine CSV-Datei mit allen Einreichungen ohne Bilddaten herunter"
-            )
-        
-        with col2:
-            # Download eines ZIP-Files mit den Bildern könnte hier implementiert werden
-            # (erfordert zusätzliche Bibliotheken)
-            pass
+        # Platz für zukünftige Features
             
         # Sort data by timestamp (newest first)
         sorted_data = data.sort_values(by='timestamp', ascending=False)
@@ -208,10 +209,13 @@ elif page == "Gallerie":
         for idx, entry in enumerate(sorted_data.itertuples()):
             col_idx = idx % 3
             with cols[col_idx]:
-                # Convert base64 to image
-                image_data = base64.b64decode(entry.image)
-                image = BytesIO(image_data)
-                st.image(image, caption=f"{entry.name} - {entry.total_score} Punkte", use_container_width=True)
+                # Versuche, das Bild zu decodieren und anzuzeigen
+                try:
+                    image_data = base64.b64decode(entry.image)
+                    image = BytesIO(image_data)
+                    st.image(image, caption=f"{entry.name} - {entry.total_score} Punkte", use_container_width=True)
+                except Exception as e:
+                    st.error("Fehler beim Anzeigen des Bildes")
                 
                 with st.expander("Details"):
                     st.write(f"**Prompt**: {entry.prompt}")

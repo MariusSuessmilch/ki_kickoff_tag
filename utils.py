@@ -3,12 +3,34 @@ import os
 import json
 from openai import OpenAI
 
-# The newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-# Do not change this unless explicitly requested by the user
-
 # Initialize OpenAI client
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Datei-Pfad für die CSV-Datei
+DATA_FILE = 'data/submissions.csv'
+
+def load_data():
+    """Lade die Einreichungen aus der CSV-Datei."""
+    try:
+        if os.path.exists(DATA_FILE):
+            return pd.read_csv(DATA_FILE)
+        return pd.DataFrame(columns=[
+            'timestamp', 'name', 'prompt', 'image',
+            'creativity', 'theme_relevance', 'vision_quality',
+            'total_score', 'feedback'
+        ])
+    except Exception as e:
+        print(f"Fehler beim Laden der Daten: {e}")
+        return pd.DataFrame()
+
+def save_data(data):
+    """Speichere die Einreichungen in der CSV-Datei."""
+    try:
+        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+        data.to_csv(DATA_FILE, index=False)
+    except Exception as e:
+        print(f"Fehler beim Speichern der Daten: {e}")
 
 def generate_image(prompt):
     """Generate an image using DALL-E 3 based on the provided prompt."""
@@ -26,22 +48,22 @@ def generate_image(prompt):
 def evaluate_image(base64_image, prompt):
     """Evaluate the image using GPT-4 Vision based on creativity, theme relevance, and vision quality."""
     try:
-        system_prompt = """You are an expert art judge for a children's competition about "City of the Future". 
-        You must evaluate the submitted image based on three criteria:
-        1. Creativity (1-10): How original and imaginative is the image?
-        2. Theme Relevance (1-10): How well does the image match the theme "City of the Future"?
-        3. Vision Quality (1-10): How compelling and well-thought-out is the vision for the city of the future?
+        system_prompt = """Du bist ein freundlicher Kunst-Juror für den Wettbewerb "Stadt der Zukunft". 
+        Bewerte das eingereichte Bild kritisch nach diesen drei Kriterien:
+        1. Kreativität (1-10): Wie originell und kreativ setzt das Bild das Thema "Stadt der Zukunft" um?
+        2. Themenpassung (1-10): Wie gut passt das Bild zum Thema "Stadt der Zukunft"?
+        3. Zukunftsvision (1-10): Wie überzeugend und durchdacht ist die Vision für die Stadt der Zukunft?
         
-        Provide a JSON response with these scores and a short, encouraging feedback for the child. 
-        Be fair but generous, as these are children's submissions.
+        Gib deine Bewertung als JSON zurück und füge ein kurzes, Feedback aus, dass die Werte für die 3 Kriterien erklärt.
+        Sei streng in den Bewertunsgzahlen, aber gib freundliches Feedback, dass für Erwachsene und Kinder geeignet ist.
         
-        Respond with JSON in this format:
+        Antworte in diesem JSON-Format:
         {
-            "creativity": number (1-10),
-            "theme_relevance": number (1-10),
-            "vision_quality": number (1-10),
-            "total_score": number (sum of above),
-            "feedback": "brief, encouraging feedback"
+            "creativity": Zahl (1-10),
+            "theme_relevance": Zahl (1-10),
+            "vision_quality": Zahl (1-10),
+            "total_score": Zahl (Summe der obigen),
+            "feedback": "kurzes, erklärendes Feedback"
         }
         """
         
@@ -50,7 +72,7 @@ def evaluate_image(base64_image, prompt):
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": [
-                    {"type": "text", "text": f"Evaluate this image based on the prompt: '{prompt}'. Remember to be encouraging as this is a child's submission."},
+                    {"type": "text", "text": f"Evaluiere das folgende Bild auf Basis der 3 Kriterien:."},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                 ]}
             ],
